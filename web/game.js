@@ -26,6 +26,7 @@ class Float64Grid {
 function main() {
 
     const canvas = document.querySelector("#canvas");
+    const sensitivityText = document.getElementById("sensitivity");
     const gl = canvas.getContext("webgl", { alpha: false, depth: false });
 
     if (gl == null) {
@@ -35,6 +36,8 @@ function main() {
 
     const glResources = initGlResources(gl);
     const state = initState();
+
+    updateSensitivityText();
 
     canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
     document.exitPointerLock = document.exitPointerLock || document.mozExitPointerLock;
@@ -58,6 +61,7 @@ function main() {
             document.mozPointerLockElement === canvas;
         if (mouseCaptured) {
             document.addEventListener("mousemove", onMouseMoved, false);
+            canvas.addEventListener("wheel", onMouseWheel, false);
             if (state.paused) {
                 state.paused = false;
                 state.tLast = undefined;
@@ -66,6 +70,7 @@ function main() {
                 requestUpdateAndRender();
             }
         } else {
+            canvas.removeEventListener("wheel", onMouseWheel, false);
             document.removeEventListener("mousemove", onMouseMoved, false);
             state.paused = true;
         }
@@ -75,8 +80,20 @@ function main() {
         updatePosition(state, e);
     }
 
+    function onMouseWheel(e) {
+        // e.stopPropagation();
+        state.sensitivity *= (e.deltaY < 0) ? 1.1 : 0.90909;
+        updateSensitivityText();
+        e.preventDefault();
+        return false;
+    }
+
     function onWindowResized() {
         requestUpdateAndRender();
+    }
+
+    function updateSensitivityText() {
+        sensitivityText.innerHTML = "Mouse sensitivity: " + state.sensitivity;
     }
 
     document.addEventListener('pointerlockchange', onLockChanged, false);
@@ -89,9 +106,8 @@ function main() {
 
 function updatePosition(state, e) {
     if (!state.player.dead) {
-        const sensitivity = 0.002;
-        state.player.velocity.x += e.movementX * sensitivity;
-        state.player.velocity.y -= e.movementY * sensitivity;
+        state.player.velocity.x += e.movementX * state.sensitivity;
+        state.player.velocity.y -= e.movementY * state.sensitivity;
     }
 }
 
@@ -111,7 +127,7 @@ function initGlResources(gl) {
 }
 
 function initState() {
-    const state = {};
+    const state = { sensitivity: 0.002 };
     resetState(state);
     return state;
 }
