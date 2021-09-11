@@ -1,1 +1,1 @@
-Javascript/WebGL demo of fast marching method and its uses
+Javascript/WebGL game similar to Spacewar!
