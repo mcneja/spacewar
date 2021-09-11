@@ -99,16 +99,23 @@ function resetState(state) {
 
     const player = {
         radius: 0.0125,
-        position: { x: 0.5, y: 0.5 },
+        position: { x: 0.5, y: 0 },
         velocity: { x: 0, y: 0 },
         color: { r: 0.8, g: 0.6, b: 0 },
         dead: false,
+    };
+
+    const sun = {
+        radius: 0.1,
+        position: { x: 0, y: 0 },
+        color: { r: 1, g: 1, b: 0 },
     };
 
     state.paused = true;
     state.gameOver = false;
     state.tLast = undefined;
     state.player = player;
+    state.sun = sun;
 }
 
 function discOverlapsDiscs(disc, discs, minSeparation) {
@@ -183,10 +190,10 @@ function createDiscRenderer(gl) {
         for (const disc of discs) {
             gl.uniform3f(colorLoc, disc.color.r, disc.color.g, disc.color.b);
 
-            projectionMatrix[0] = 2 * disc.radius;
-            projectionMatrix[5] = 2 * disc.radius;
-            projectionMatrix[12] = 2 * disc.position.x - 1;
-            projectionMatrix[13] = 2 * disc.position.y - 1;
+            projectionMatrix[0] = disc.radius;
+            projectionMatrix[5] = disc.radius;
+            projectionMatrix[12] = disc.position.x;
+            projectionMatrix[13] = disc.position.y;
             gl.uniformMatrix4fv(projectionMatrixLoc, false, projectionMatrix);
 
             gl.drawArrays(gl.TRIANGLES, 0, 6);
@@ -236,13 +243,6 @@ function updateAndRender(now, gl, glResources, state) {
 }
 
 function updateState(state, dt) {
-
-    if (state.player.dead) {
-        const r = Math.exp(-dt);
-        state.player.velocity.x *= r;
-        state.player.velocity.y *= r;
-    }
-
     state.player.position.x += state.player.velocity.x * dt;
     state.player.position.y += state.player.velocity.y * dt;
 
@@ -250,18 +250,23 @@ function updateState(state, dt) {
 }
 
 function fixupPositionAndVelocityAgainstBoundary(disc) {
-    if (disc.position.x < disc.radius) {
-        disc.position.x = disc.radius;
+    const xMin = -1 + disc.radius;
+    const yMin = -1 + disc.radius;
+    const xMax = 1 - disc.radius;
+    const yMax = 1 - disc.radius;
+
+    if (disc.position.x < xMin) {
+        disc.position.x = xMin;
         disc.velocity.x = 0;
-    } else if (disc.position.x > 1 - disc.radius) {
-        disc.position.x = 1 - disc.radius;
+    } else if (disc.position.x > xMax) {
+        disc.position.x = xMax;
         disc.velocity.x = 0;
     }
-    if (disc.position.y < disc.radius) {
-        disc.position.y = disc.radius;
+    if (disc.position.y < yMin) {
+        disc.position.y = yMin;
         disc.velocity.y = 0;
-    } else if (disc.position.y > 1 - disc.radius) {
-        disc.position.y = 1 - disc.radius;
+    } else if (disc.position.y > yMax) {
+        disc.position.y = yMax;
         disc.velocity.y = 0;
     }
 }
@@ -275,7 +280,7 @@ function drawScreen(gl, glResources, state) {
     gl.viewport(0, 0, screenX, screenY);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    glResources.renderDiscs([state.player]);
+    glResources.renderDiscs([state.sun, state.player]);
 }
 
 function resizeCanvasToDisplaySize(canvas) {
