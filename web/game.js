@@ -15,62 +15,67 @@ function main() {
     const glResources = initGlResources(gl);
     const state = initState();
 
-    canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
-    document.exitPointerLock = document.exitPointerLock || document.mozExitPointerLock;
-
-    canvas.onclick = () => {
-        if (state.paused) {
-            canvas.requestPointerLock();
-        } else {
-            resetState(state);
-            document.exitPointerLock();
-        }
-    };
+    document.body.addEventListener('keydown', onKeyDown);
+    document.body.addEventListener('keyup', onKeyUp);
 
     function requestUpdateAndRender() {
         requestAnimationFrame(now => updateAndRender(now, gl, glResources, state));
     }
 
-    function onLockChanged() {
-        const mouseCaptured =
-            document.pointerLockElement === canvas ||
-            document.mozPointerLockElement === canvas;
-        if (mouseCaptured) {
-            document.addEventListener("mousemove", onMouseMoved, false);
-            if (state.paused) {
-                state.paused = false;
-                state.tLast = undefined;
-                state.player.velocity.x = 0;
-                state.player.velocity.y = 0;
-                requestUpdateAndRender();
-            }
-        } else {
-            document.removeEventListener("mousemove", onMouseMoved, false);
-            state.paused = true;
+    function onKeyDown(e) {
+        switch (e.code) {
+            case 'ArrowLeft':
+            case 'ArrowUp':
+            case 'ArrowRight':
+            case 'ArrowDown':
+                if (state.paused) {
+                    unpause();
+                }
+                state.pressed.add(e.code);
+                e.preventDefault();
+                break;
+            case 'Escape':
+                if (state.paused) {
+                    unpause();
+                } else {
+                    pause();
+                }
+                e.preventDefault();
+                break;
         }
     }
 
-    function onMouseMoved(e) {
-        updatePosition(state, e);
+    function pause() {
+        state.paused = true;
+    }
+
+    function unpause() {
+        if (state.paused) {
+            state.paused = false;
+            state.tLast = undefined;
+            requestUpdateAndRender();
+        }
+    }
+
+    function onKeyUp(e) {
+        switch (e.code) {
+            case 'ArrowLeft':
+            case 'ArrowUp':
+            case 'ArrowRight':
+            case 'ArrowDown':
+                state.pressed.delete(e.code);
+                e.preventDefault();
+                break;
+        }
     }
 
     function onWindowResized() {
         requestUpdateAndRender();
     }
 
-    document.addEventListener('pointerlockchange', onLockChanged, false);
-    document.addEventListener('mozpointerlockchange', onLockChanged, false);
-
     window.addEventListener('resize', onWindowResized);
 
     requestUpdateAndRender();
-}
-
-function updatePosition(state, e) {
-    if (!state.player.dead) {
-        state.player.velocity.x += e.movementX * state.sensitivity;
-        state.player.velocity.y -= e.movementY * state.sensitivity;
-    }
 }
 
 function initGlResources(gl) {
@@ -88,14 +93,13 @@ function initGlResources(gl) {
 }
 
 function initState() {
-    const state = { sensitivity: 0.002 };
+    const state = { rocket_acceleration: 0.5, pressed: new Set() };
     resetState(state);
     return state;
 }
 
 function resetState(state) {
-    const gridSizeX = 64;
-    const gridSizeY = 64;
+    const mu = 0.05;
 
     const player = {
         radius: 0.0125,
@@ -104,6 +108,10 @@ function resetState(state) {
         color: { r: 0.8, g: 0.6, b: 0 },
         dead: false,
     };
+
+    const r = Math.sqrt(player.position.x**2 + player.position.y**2);
+    const v = Math.sqrt(mu / r);
+    player.velocity.y = v;
 
     const sun = {
         radius: 0.1,
@@ -114,6 +122,7 @@ function resetState(state) {
     state.paused = true;
     state.gameOver = false;
     state.tLast = undefined;
+    state.mu = mu;
     state.player = player;
     state.sun = sun;
 }
@@ -243,8 +252,35 @@ function updateAndRender(now, gl, glResources, state) {
 }
 
 function updateState(state, dt) {
-    state.player.position.x += state.player.velocity.x * dt;
-    state.player.position.y += state.player.velocity.y * dt;
+    const sun_radius = 0.1;
+	const r2 = Math.max(state.player.position.x**2 + state.player.position.y**2, sun_radius**2);
+	const r = Math.sqrt(r2);
+	const gravityStrength = -state.mu / (r2 * r);
+	const gravity = { x: state.player.position.x * gravityStrength, y: state.player.position.y * gravityStrength };
+
+    const joystick = {
+        x: (state.pressed.has('ArrowLeft') ? -1 : 0) + (state.pressed.has('ArrowRight') ? 1 : 0),
+        y: (state.pressed.has('ArrowDown') ? -1 : 0) + (state.pressed.has('ArrowUp') ? 1 : 0),
+    };
+    const joystickSqLen = joystick.x**2 + joystick.y**2;
+    if (joystickSqLen > 1) {
+        const joystickLen = Math.sqrt(joystickSqLen);
+        joystick.x /= joystickLen;
+        joystick.y /= joystickLen;
+    }
+
+    const acceleration = { x: joystick.x * state.rocket_acceleration, y: joystick.y * state.rocket_acceleration };
+    acceleration.x += gravity.x;
+    acceleration.y += gravity.y;
+
+    const vXNew = state.player.velocity.x + acceleration.x * dt;
+    const vYNew = state.player.velocity.y + acceleration.y * dt;
+
+    state.player.position.x += (state.player.velocity.x + vXNew) * (dt / 2);
+    state.player.position.y += (state.player.velocity.y + vYNew) * (dt / 2);
+
+    state.player.velocity.x = vXNew;
+    state.player.velocity.y = vYNew;
 
     fixupPositionAndVelocityAgainstBoundary(state.player);
 }
