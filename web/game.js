@@ -28,6 +28,15 @@ function main() {
             case 'ArrowUp':
             case 'ArrowRight':
             case 'ArrowDown':
+            case 'Numpad1':
+            case 'Numpad2':
+            case 'Numpad3':
+            case 'Numpad4':
+            case 'Numpad5':
+            case 'Numpad6':
+            case 'Numpad7':
+            case 'Numpad8':
+            case 'Numpad9':
                 if (state.paused) {
                     unpause();
                 }
@@ -63,6 +72,15 @@ function main() {
             case 'ArrowUp':
             case 'ArrowRight':
             case 'ArrowDown':
+            case 'Numpad1':
+            case 'Numpad2':
+            case 'Numpad3':
+            case 'Numpad4':
+            case 'Numpad5':
+            case 'Numpad6':
+            case 'Numpad7':
+            case 'Numpad8':
+            case 'Numpad9':
                 state.pressed.delete(e.code);
                 e.preventDefault();
                 break;
@@ -77,6 +95,114 @@ function main() {
 
     requestUpdateAndRender();
 }
+
+function Vector(x, y) {
+    this.x = x || 0;
+    this.y = y || 0;
+}
+
+Vector.prototype = {
+    negative: function() {
+        this.x = -this.x;
+        this.y = -this.y;
+        return this;
+    },
+    add: function(v) {
+        if (v instanceof Vector) {
+            this.x += v.x;
+            this.y += v.y;
+        } else {
+            this.x += v;
+            this.y += v;
+        }
+        return this;
+    },
+    subtract: function(v) {
+        if (v instanceof Vector) {
+            this.x -= v.x;
+            this.y -= v.y;
+        } else {
+            this.x -= v;
+            this.y -= v;
+        }
+        return this;
+    },
+    multiply: function(v) {
+        if (v instanceof Vector) {
+            this.x *= v.x;
+            this.y *= v.y;
+        } else {
+            this.x *= v;
+            this.y *= v;
+        }
+        return this;
+    },
+    divide: function(v) {
+        if (v instanceof Vector) {
+            this.x /= v.x;
+            this.y /= v.y;
+        } else {
+            this.x /= v;
+            this.y /= v;
+        }
+        return this;
+    },
+    equals: function(v) {
+        return this.x == v.x && this.y == v.y;
+    },
+    dot: function(v) {
+        return this.x * v.x + this.y * v.y;
+    },
+    cross: function(v) {
+        return this.x * v.y - this.y * v.x;
+    },
+    lengthSquared: function() {
+        return this.dot(this);
+    },
+    length: function() {
+        return Math.sqrt(this.lengthSquared());
+    },
+    normalize: function() {
+        return this.divide(this.length());
+    },
+    clone: function() {
+        return new Vector(this.x, this.y);
+    },
+    set: function(x, y) {
+        this.x = x;
+        this.y = y;
+        return this;
+    }
+};
+
+Vector.negative = function(v) {
+    return new Vector(-v.x, -v.y);
+};
+Vector.add = function(a, b) {
+    if (b instanceof Vector) return new Vector(a.x + b.x, a.y + b.y);
+    else return new Vector(a.x + b, a.y + b);
+};
+Vector.subtract = function(a, b) {
+    if (b instanceof Vector) return new Vector(a.x - b.x, a.y - b.y);
+    else return new Vector(a.x - b, a.y - b);
+};
+Vector.multiply = function(a, b) {
+    if (b instanceof Vector) return new Vector(a.x * b.x, a.y * b.y);
+    else return new Vector(a.x * b, a.y * b);
+};
+Vector.divide = function(a, b) {
+    if (b instanceof Vector) return new Vector(a.x / b.x, a.y / b.y);
+    else return new Vector(a.x / b, a.y / b);
+};
+Vector.equals = function(a, b) {
+    return a.x == b.x && a.y == b.y;
+};
+Vector.dot = function(a, b) {
+    return a.x * b.x + a.y * b.y;
+};
+Vector.cross = function(a, b) {
+    return a.x * b.y - a.y * b.x;
+};
 
 function initGlResources(gl) {
     gl.getExtension('OES_standard_derivatives');
@@ -103,19 +229,19 @@ function resetState(state) {
 
     const player = {
         radius: 0.0125,
-        position: { x: 0.5, y: 0 },
-        velocity: { x: 0, y: 0 },
+        position: new Vector(0.5, 0),
+        velocity: new Vector(0, 0),
         color: { r: 0.8, g: 0.6, b: 0 },
         dead: false,
     };
 
-    const r = Math.sqrt(player.position.x**2 + player.position.y**2);
+    const r = player.position.length();
     const v = Math.sqrt(mu / r);
     player.velocity.y = v;
 
     const sun = {
         radius: 0.1,
-        position: { x: 0, y: 0 },
+        position: new Vector(0, 0),
         color: { r: 1, g: 1, b: 0 },
     };
 
@@ -129,9 +255,8 @@ function resetState(state) {
 
 function discOverlapsDiscs(disc, discs, minSeparation) {
     for (const disc2 of discs) {
-        const dx = disc2.position.x - disc.position.x;
-        const dy = disc2.position.y - disc.position.y;
-        if (dx**2 + dy**2 < (disc2.radius + disc.radius + minSeparation)**2) {
+        const d = Vector.subtract(disc2.position, disc.position);
+        if (d.lengthSquared() < (disc2.radius + disc.radius + minSeparation)**2) {
             return true;
         }
     }
@@ -139,9 +264,8 @@ function discOverlapsDiscs(disc, discs, minSeparation) {
 }
 
 function discsOverlap(disc0, disc1) {
-    const dx = disc1.position.x - disc0.position.x;
-    const dy = disc1.position.y - disc0.position.y;
-    return dx**2 + dy**2 < (disc1.radius + disc0.radius)**2;
+    const d = Vector.subtract(disc1.position, disc0.position);
+    return d.lengthSquared() < (disc1.radius + disc0.radius)**2;
 }
 
 function createDiscRenderer(gl) {
@@ -252,37 +376,78 @@ function updateAndRender(now, gl, glResources, state) {
 }
 
 function updateState(state, dt) {
-    const sun_radius = 0.1;
-	const r2 = Math.max(state.player.position.x**2 + state.player.position.y**2, sun_radius**2);
-	const r = Math.sqrt(r2);
-	const gravityStrength = -state.mu / (r2 * r);
-	const gravity = { x: state.player.position.x * gravityStrength, y: state.player.position.y * gravityStrength };
-
-    const joystick = {
-        x: (state.pressed.has('ArrowLeft') ? -1 : 0) + (state.pressed.has('ArrowRight') ? 1 : 0),
-        y: (state.pressed.has('ArrowDown') ? -1 : 0) + (state.pressed.has('ArrowUp') ? 1 : 0),
+    const playerStateOld = {
+        position: state.player.position,
+        velocity: state.player.velocity,
     };
-    const joystickSqLen = joystick.x**2 + joystick.y**2;
-    if (joystickSqLen > 1) {
-        const joystickLen = Math.sqrt(joystickSqLen);
-        joystick.x /= joystickLen;
-        joystick.y /= joystickLen;
-    }
+    const playerStateNew = stateIntegrate(
+        playerStateOld,
+        body => stateDerivatives(body, state.mu, vecThrust(state)),
+        dt
+    );
 
-    const acceleration = { x: joystick.x * state.rocket_acceleration, y: joystick.y * state.rocket_acceleration };
-    acceleration.x += gravity.x;
-    acceleration.y += gravity.y;
-
-    const vXNew = state.player.velocity.x + acceleration.x * dt;
-    const vYNew = state.player.velocity.y + acceleration.y * dt;
-
-    state.player.position.x += (state.player.velocity.x + vXNew) * (dt / 2);
-    state.player.position.y += (state.player.velocity.y + vYNew) * (dt / 2);
-
-    state.player.velocity.x = vXNew;
-    state.player.velocity.y = vYNew;
+    state.player.position = playerStateNew.position.clone();
+    state.player.velocity = playerStateNew.velocity.clone();
 
     fixupPositionAndVelocityAgainstBoundary(state.player);
+}
+
+const thrustInputs = [
+    { keys: ['ArrowLeft', 'Numpad1', 'Numpad4', 'Numpad7'], dir: new Vector(-1, 0) },
+    { keys: ['ArrowRight', 'Numpad3', 'Numpad6', 'Numpad9'], dir: new Vector(1, 0) },
+    { keys: ['ArrowDown', 'Numpad1', 'Numpad2', 'Numpad3'], dir: new Vector(0, -1) },
+    { keys: ['ArrowUp', 'Numpad7', 'Numpad8', 'Numpad9'], dir: new Vector(0, 1) },
+];
+
+function vecThrust(state) {
+    const joystick = thrustInputs.map(keysDir =>
+        keysDir.keys.some(key => state.pressed.has(key)) ? keysDir.dir : new Vector(0, 0)
+    ).reduce(Vector.add, new Vector(0, 0));
+
+    const joystickSqLen = joystick.lengthSquared();
+    if (joystickSqLen > 1) {
+        joystick.divide(Math.sqrt(joystickSqLen));
+    }
+
+    return Vector.multiply(joystick, state.rocket_acceleration);
+}
+
+function stateAdd(state0, state1) {
+    return {
+        position: Vector.add(state0.position, state1.position),
+        velocity: Vector.add(state0.velocity, state1.velocity),
+    };
+}
+
+function stateScale(state, scale) {
+    return {
+        position: Vector.multiply(state.position, scale),
+        velocity: Vector.multiply(state.velocity, scale),
+    };
+}
+
+function gravitationalAcceleration(position, mu) {
+    const sun_radius = 0.1;
+	const r2 = Math.max(position.lengthSquared(), sun_radius**2);
+	const r = Math.sqrt(r2);
+	const gravityStrength = -mu / (r2 * r);
+	return Vector.multiply(position, gravityStrength);
+}
+
+function stateDerivatives(body, mu, thrust) {
+    const gravity = gravitationalAcceleration(body.position, mu);
+    const acceleration = Vector.add(gravity, thrust);
+    return {
+        position: body.velocity.clone(),
+        velocity: acceleration,
+    };
+}
+
+function stateIntegrate(state1, derivatives, dt) {
+    const k1 = derivatives(state1);
+    const k2 = derivatives(stateAdd(state1, stateScale(k1, dt*2/3)));
+    const state2 = stateAdd(state1, stateScale(stateAdd(k1, stateScale(k2, 3)), dt/4));
+    return state2;
 }
 
 function fixupPositionAndVelocityAgainstBoundary(disc) {
