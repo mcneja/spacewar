@@ -224,20 +224,23 @@ function initState() {
     return state;
 }
 
+function circularOrbitVelocity(mu, pos) {
+    const r = pos.length();
+    const v = Math.sqrt(mu / r) / r;
+    return new Vector(-pos.y * v, pos.x * v);
+}
+
 function resetState(state) {
     const mu = 0.05;
 
+    const posPlayer = new Vector(-0.4, 0.4);
     const player = {
         radius: 0.0125,
-        position: new Vector(0.5, 0),
-        velocity: new Vector(0, 0),
+        position: posPlayer,
+        velocity: circularOrbitVelocity(mu, posPlayer),
         color: { r: 0.8, g: 0.6, b: 0 },
         dead: false,
     };
-
-    const r = player.position.length();
-    const v = Math.sqrt(mu / r);
-    player.velocity.y = v;
 
     const sun = {
         radius: 0.1,
@@ -245,11 +248,20 @@ function resetState(state) {
         color: { r: 1, g: 1, b: 0 },
     };
 
+    const posEnemy = new Vector(0.68, -0.68);
+    const enemy = {
+        radius: 0.0125,
+        position: posEnemy,
+        velocity: circularOrbitVelocity(mu, posEnemy),
+        color: { r: 1, g: 0, b: 0 }
+    };
+
     state.paused = true;
     state.gameOver = false;
     state.tLast = undefined;
     state.mu = mu;
     state.player = player;
+    state.enemies = [enemy];
     state.sun = sun;
 }
 
@@ -375,21 +387,28 @@ function updateAndRender(now, gl, glResources, state) {
     }
 }
 
-function updateState(state, dt) {
-    const playerStateOld = {
-        position: state.player.position,
-        velocity: state.player.velocity,
+function updateRocket(rocket, dt, mu, thrust) {
+    const stateOld = {
+        position: rocket.position,
+        velocity: rocket.velocity,
     };
-    const playerStateNew = stateIntegrate(
-        playerStateOld,
-        body => stateDerivatives(body, state.mu, vecThrust(state)),
+    const stateNew = stateIntegrate(
+        stateOld,
+        rocket => stateDerivatives(rocket, mu, thrust),
         dt
     );
 
-    state.player.position = playerStateNew.position.clone();
-    state.player.velocity = playerStateNew.velocity.clone();
+    rocket.position = stateNew.position.clone();
+    rocket.velocity = stateNew.velocity.clone();
 
-    fixupPositionAndVelocityAgainstBoundary(state.player);
+    fixupPositionAndVelocityAgainstBoundary(rocket);
+}
+
+function updateState(state, dt) {
+    updateRocket(state.player, dt, state.mu, vecThrust(state));
+    for (const enemy of state.enemies) {
+        updateRocket(enemy, dt, state.mu, new Vector(0, 0));
+    }
 }
 
 const thrustInputs = [
@@ -482,6 +501,7 @@ function drawScreen(gl, glResources, state) {
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     glResources.renderDiscs([state.sun, state.player]);
+    glResources.renderDiscs(state.enemies);
 }
 
 function resizeCanvasToDisplaySize(canvas) {
