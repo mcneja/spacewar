@@ -213,7 +213,7 @@ function initGlResources(gl) {
 
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.enable(gl.BLEND);
-    gl.clearColor(0, 0, 0.05, 1);
+    gl.clearColor(0, 0, 0.1, 1);
 
     return glResources;
 }
