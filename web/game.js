@@ -203,6 +203,14 @@ Vector.dot = function(a, b) {
 Vector.cross = function(a, b) {
     return a.x * b.y - a.y * b.x;
 };
+Vector.limit = function(a, maxLen) {
+    const len = a.length();
+    let aLimited = a;
+    if (len > maxLen) {
+        aLimited.multiply(maxLen / len);
+    }
+    return aLimited;
+}
 
 function initGlResources(gl) {
     gl.getExtension('OES_standard_derivatives');
@@ -248,7 +256,7 @@ function resetState(state) {
         color: { r: 1, g: 1, b: 0 },
     };
 
-    const posEnemy = new Vector(0.68, -0.68);
+    const posEnemy = new Vector(0.68, 0.68);
     const enemy = {
         radius: 0.0125,
         position: posEnemy,
@@ -400,14 +408,14 @@ function updateRocket(rocket, dt, mu, thrust) {
 
     rocket.position = stateNew.position.clone();
     rocket.velocity = stateNew.velocity.clone();
-
-    fixupPositionAndVelocityAgainstBoundary(rocket);
 }
 
 function updateState(state, dt) {
     updateRocket(state.player, dt, state.mu, vecThrust(state));
+    fixupPositionAndVelocityAgainstBoundary(state.player);
+
     for (const enemy of state.enemies) {
-        updateRocket(enemy, dt, state.mu, new Vector(0, 0));
+        updateEnemy(enemy, dt, state.mu, state.player);
     }
 }
 
@@ -542,4 +550,15 @@ function loadShader(gl, type, source) {
     }
 
     return shader;
+}
+
+function updateEnemy(enemy, dt, mu, player) {
+    const dPos = Vector.subtract(player.position, enemy.position);
+    const dVel = Vector.subtract(player.velocity, enemy.velocity);
+
+    const springFreq = 2.0;
+
+    const acceleration = Vector.limit(Vector.add(Vector.multiply(dPos, springFreq**2), Vector.multiply(dVel, 2*springFreq)), 0.5);
+
+    updateRocket(enemy, dt, mu, acceleration);
 }
